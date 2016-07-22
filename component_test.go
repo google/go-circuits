@@ -64,11 +64,12 @@ func Test_RegisterComponent(t *testing.T) {
 }
 
 func Test_UnregisterComponent(t *testing.T) {
-	calls := make([]string, 0)
+	calls = make([]string, 0)
 	main := NewComponent()
 	child := NewComponent()
 	child.RegisterEventHandler(NewEventHandler("foo", BasicEventHandler))
 	main.RegisterComponent(child)
+	main.UnregisterComponent(child)
 	main.Fire(BaseEvent{"foo"})
 	main.Tick()
 	if len(calls) != 0 {

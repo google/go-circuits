@@ -68,18 +68,23 @@ func (c *Component) RegisterComponent(component *Component) {
 
 // Remove a Component from the system, implicitly removes all children recursively
 func (c *Component) UnregisterComponent(component *Component) {
-	//found := false
-	//i := 0
-	//for ; i < len(c.children); i++ {
-	//	if c.children[i] == component {
-	//		found = true
-	//		break
-	//	}
-	//}
+	found := false
+	i := 0
+	for ; i < len(c.children); i++ {
+		if c.children[i] == component {
+			found = true
+			break
+		}
+	}
 
-	//if found {
-	//	c.children = append(c.children[:i], c.children[i+1:]...)
-	//}
+	if found {
+		c.children = append(c.children[:i], c.children[i+1:]...)
+		for _, handlers := range component.eventHandlers {
+			for h := handlers.Front(); h != nil; h = h.Next() {
+				c.UnregisterEventHandler(h.Value.(*EventHandler))
+			}
+		}
+	}
 }
 
 // Add an event to the queue
