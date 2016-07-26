@@ -15,15 +15,32 @@
 package main
 
 type Event interface {
-	GetTarget() string
+	Target() string
+	NotifyFailure() bool
+	NotifySuccess() bool
+	NotifyComplete() bool
 }
-
 
 type BaseEvent struct {
 	target string
+	notify_failure bool
+	notify_success bool
+	notify_complete bool
 }
 
-func (e BaseEvent) GetTarget() string {
+func (e *BaseEvent) Target() string {
 	return e.target
+}
+
+func (e *BaseEvent) NotifyFailure() bool {
+	return e.notify_failure
+}
+
+func (e *BaseEvent) NotifySuccess() bool {
+	return e.notify_success
+}
+
+func (e *BaseEvent) NotifyComplete() bool {
+	return e.notify_complete
 }
 

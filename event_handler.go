@@ -14,17 +14,29 @@
 
 package main
 
+import "errors"
+
 func NewEventHandler(target string, c func(Event)) *EventHandler {
-	eh := EventHandler{Call: c, target: target}
+	eh := EventHandler{call: c, target: target}
 	return &eh
 }
 
 type EventHandler struct {
-	Call func(Event)
+	call func(Event)
 	target string
 }
 
 func (eh *EventHandler) Target() string {
 	return eh.target
+}
+
+func (eh *EventHandler) Call(event Event) (err error) {
+	defer func() {
+		if err_s := recover(); err_s != nil {
+			err = errors.New(err_s.(string))
+		}
+	}()
+	eh.call(event)
+	return
 }
 

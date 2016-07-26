@@ -28,9 +28,9 @@ func benchmark(b *testing.B, threads int) {
 	go async_run(threads, c, wg)
         b.ResetTimer()
         for i := 0; i < b.N; i++ {
-                c.Fire(BaseEvent{"f"})
+		c.Fire(&BaseEvent{target: "f"})
         }
-	c.Fire(BaseEvent{"exit"})
+	c.Fire(&BaseEvent{target: "exit"})
         wg.Wait()
 }
 

@@ -138,10 +138,21 @@ func (c *Component) processEvents() {
 
 // Process a single event
 func (c * Component) processEvent(event Event) {
-	handlers := c.eventHandlers[event.GetTarget()]
+	target := event.Target()
+	handlers := c.eventHandlers[target]
 	if handlers != nil {
 		for h := handlers.Front(); h != nil; h = h.Next() {
-			h.Value.(*EventHandler).Call(event)
+			err := h.Value.(*EventHandler).Call(event)
+
+			// Send notifications of Event status
+			if event.NotifyFailure() && err != nil {
+				c.Fire(&BaseEvent{target: target + "_failure"})
+			} else if event.NotifySuccess() && err == nil {
+				c.Fire(&BaseEvent{target: target + "_success"})
+			}
+			if event.NotifyComplete() {
+				c.Fire(&BaseEvent{target: target + "_complete"})
+			}
 		}
 	}
 }
