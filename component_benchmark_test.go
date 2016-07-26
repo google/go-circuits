@@ -15,24 +15,29 @@
 package main
 
 import (
+	"runtime"
+	"sync"
         "testing"
 )
 
-func Benchmark_SingleEvent(b *testing.B) {
+func benchmark(b *testing.B, threads int) {
         c := NewComponent()
         c.RegisterEventHandler(NewEventHandler("f", func(_ Event){}))
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go async_run(threads, c, wg)
         b.ResetTimer()
         for i := 0; i < b.N; i++ {
                 c.Fire(BaseEvent{"f"})
-                c.Tick()
         }
+	c.Fire(BaseEvent{"exit"})
+        wg.Wait()
 }
-func Benchmark_EventBatch(b *testing.B) {
-        c := NewComponent()
-        c.RegisterEventHandler(NewEventHandler("f", func(_ Event){}))
-        b.ResetTimer()
-        for i := 0; i < b.N; i++ {
-                c.Fire(BaseEvent{"f"})
-        }
-        c.Tick()
+
+func Benchmark_SingleThread(b *testing.B) {
+	benchmark(b, 1)
+}
+
+func Benchmark_MultiThread(b *testing.B) {
+	benchmark(b, runtime.GOMAXPROCS(0))
 }

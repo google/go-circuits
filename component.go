@@ -16,11 +16,24 @@ package main
 
 import (
 	"container/list"
-	"time"
+	"sync"
 )
 
+type ExitEvent struct {
+        BaseEvent
+        Exit func()
+}
+
 func NewComponent() *Component {
-	c := Component{eventHandlers: make(map[string]*list.List), eventQueue: list.New()}
+	return NewAdvancedComponent(100)
+}
+
+func NewAdvancedComponent(eventChanSize int) *Component {
+	c := Component{
+		eventHandlers: make(map[string]*list.List),
+		eventChan: make(chan Event, eventChanSize),
+	}
+	c.RegisterEventHandler(NewEventHandler("exit", c.Exit))
 	return &c
 }
 
@@ -29,8 +42,8 @@ type Component struct {
 	parent *Component
 	children []*Component
 	eventHandlers map[string]*list.List
-	eventQueue *list.List
-	exit bool
+	eventChan chan Event
+	waitGroup sync.WaitGroup
 }
 
 // Add an EventHandler to the system
@@ -103,51 +116,47 @@ func (c *Component) UnregisterComponent(component *Component) {
 
 // Add an event to the queue
 func (c *Component) Fire(event Event) {
-	c.eventQueue.PushBack(event)
+	c.eventChan <- event
 }
 
 // Trigger an exit on the next loop
-func (c *Component) Exit() {
-	c.exit = true
+func (c *Component) Exit(_ Event) {
+	close(c.eventChan)
 }
 
-// Process all events in the queue
-func (c *Component) executeQueue() {
-	for e := c.eventQueue.Front(); c.eventQueue.Len() != 0; e = c.eventQueue.Front() {
-		c.eventQueue.Remove(e)
-		event := e.Value.(Event)
-		handlers := c.eventHandlers[event.GetTarget()]
-		if handlers == nil {
-			continue
+// Process events piped over the channel
+func (c *Component) processEvents() {
+	defer c.waitGroup.Done()
+	for true {
+		event, open := <-c.eventChan
+		if !open {
+			break
 		}
+		c.processEvent(event)
+	}
+}
+
+// Process a single event
+func (c * Component) processEvent(event Event) {
+	handlers := c.eventHandlers[event.GetTarget()]
+	if handlers != nil {
 		for h := handlers.Front(); h != nil; h = h.Next() {
 			h.Value.(*EventHandler).Call(event)
 		}
 	}
 }
 
-// Recursively tick over all children
-func (c *Component) recursiveTick() {
-	c.Tick()
-	for _, child := range c.children {
-		child.recursiveTick()
-	}
-}
-
-// Iterate once
-func (c *Component) Tick() {
-	c.executeQueue()
-}
-
 // Main loop
-func (c *Component) Run() {
+func (c *Component) Run(num_workers int) {
 	if c.root != nil {
 		panic("Cannot run main loop on child component.")
 	}
 
-	for !c.exit {
-		c.recursiveTick()
-		time.Sleep(1 * time.Millisecond)
+	for i := 0; i < num_workers; i++ {
+		c.waitGroup.Add(1)
+		go c.processEvents()
 	}
+
+	c.waitGroup.Wait() // Wait for all event goroutines to finish
 }
 

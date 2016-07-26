@@ -29,9 +29,10 @@ func Test_SimpleEvent(t *testing.T) {
 	c := NewComponent()
 	c.RegisterEventHandler(NewEventHandler("foo", BasicEventHandler))
 	c.Fire(BaseEvent{"foo"})
-	c.Tick()
+	c.Fire(BaseEvent{"exit"})
+	c.Run(1)
 	if len(calls) != 1 {
-		t.Errorf("Expected one call to the EventHandler. Got %d.", calls)
+		t.Errorf("Expected one call to the EventHandler. Got %d.", len(calls))
 	}
 }
 
@@ -42,7 +43,8 @@ func Test_EventsFIFO(t *testing.T) {
 	c.RegisterEventHandler(NewEventHandler("bar", BasicEventHandler))
 	c.Fire(BaseEvent{"foo"})
 	c.Fire(BaseEvent{"bar"})
-	c.Tick()
+	c.Fire(BaseEvent{"exit"})
+	c.Run(1)
 	if len(calls) != 2 {
 		t.Errorf("Expected two calls to the EventHandler. Got %d.", len(calls))
 	} else if calls[0] != "foo" || calls[1] != "bar" {
@@ -57,7 +59,8 @@ func Test_UnregisterEventHandler(t *testing.T) {
 	c.RegisterEventHandler(eventHandler)
 	c.UnregisterEventHandler(eventHandler)
 	c.Fire(BaseEvent{"foo"})
-	c.Tick()
+	c.Fire(BaseEvent{"exit"})
+	c.Run(1)
 	if len(calls) != 0 {
 		t.Errorf("Expected no calls to the EventHandler. Got %d.", len(calls))
 	}
@@ -70,7 +73,8 @@ func Test_RegisterComponent(t *testing.T) {
 	child.RegisterEventHandler(NewEventHandler("foo", BasicEventHandler))
 	main.RegisterComponent(child)
 	main.Fire(BaseEvent{"foo"})
-	main.Tick()
+	main.Fire(BaseEvent{"exit"})
+	main.Run(1)
 	if len(calls) != 1 {
 		t.Errorf("Expected one call to the event handler. Got %d.", len(calls))
 	}
@@ -84,8 +88,10 @@ func Test_UnregisterComponent(t *testing.T) {
 	main.RegisterComponent(child)
 	main.UnregisterComponent(child)
 	main.Fire(BaseEvent{"foo"})
-	main.Tick()
+	main.Fire(BaseEvent{"exit"})
+	main.Run(1)
 	if len(calls) != 0 {
 		t.Errorf("Expected no calls to the event handler. Got %d.", len(calls))
 	}
 }
+
