@@ -14,16 +14,23 @@
 
 package main
 
-import "errors"
+import (
+	"errors"
+)
 
-func NewEventHandler(target string, c func(Event)) *EventHandler {
-	eh := EventHandler{call: c, target: target}
+func NewEventHandler(channel string, target string, c func(Event)) *EventHandler {
+	eh := EventHandler{call: c, channel: channel, target: target}
 	return &eh
 }
 
 type EventHandler struct {
-	call func(Event)
-	target string
+	call    func(Event)
+	channel string
+	target  string
+}
+
+func (eh *EventHandler) Channel() string {
+	return eh.channel
 }
 
 func (eh *EventHandler) Target() string {
@@ -39,4 +46,3 @@ func (eh *EventHandler) Call(event Event) (err error) {
 	eh.call(event)
 	return
 }
-

@@ -17,21 +17,21 @@ package main
 import (
 	"runtime"
 	"sync"
-        "testing"
+	"testing"
 )
 
 func benchmark(b *testing.B, threads int) {
-        c := NewComponent()
-        c.RegisterEventHandler(NewEventHandler("f", func(_ Event){}))
+	c := NewComponent()
+	c.RegisterEventHandler(NewEventHandler("*", "f", func(_ Event) {}))
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	go async_run(threads, c, wg)
-        b.ResetTimer()
-        for i := 0; i < b.N; i++ {
-		c.Fire(&BaseEvent{target: "f"})
-        }
-	c.Fire(&BaseEvent{target: "exit"})
-        wg.Wait()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		c.Fire(NewEvent("*", "f"))
+	}
+	c.Fire(NewEvent("*", "exit"))
+	wg.Wait()
 }
 
 func Benchmark_SingleThread(b *testing.B) {

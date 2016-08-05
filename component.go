@@ -20,8 +20,8 @@ import (
 )
 
 type ExitEvent struct {
-        BaseEvent
-        Exit func()
+	BaseEvent
+	Exit func()
 }
 
 func NewComponent() *Component {
@@ -30,30 +30,37 @@ func NewComponent() *Component {
 
 func NewAdvancedComponent(eventChanSize int) *Component {
 	c := Component{
-		eventHandlers: make(map[string]*list.List),
-		eventChan: make(chan Event, eventChanSize),
+		eventHandlers: make(map[string]map[string]*list.List),
+		eventChan:     make(chan Event, eventChanSize),
 	}
-	c.RegisterEventHandler(NewEventHandler("exit", c.Exit))
+	c.RegisterEventHandler(NewEventHandler("*", "exit", c.Exit))
 	return &c
 }
 
 type Component struct {
-	root *Component
-	parent *Component
-	children []*Component
-	eventHandlers map[string]*list.List
-	eventChan chan Event
-	waitGroup sync.WaitGroup
+	root          *Component
+	parent        *Component
+	children      []*Component
+	eventHandlers map[string]map[string]*list.List
+	eventChan     chan Event
+	waitGroup     sync.WaitGroup
 }
 
 // Add an EventHandler to the system
 func (c *Component) RegisterEventHandler(handler *EventHandler) {
+	channel := handler.Channel()
 	target := handler.Target()
-	_, ok := c.eventHandlers[target]
+	channel_handlers, ok := c.eventHandlers[channel]
 	if !ok {
-		c.eventHandlers[target] = list.New()
+		channel_handlers = make(map[string]*list.List)
+		c.eventHandlers[channel] = channel_handlers
 	}
-	c.eventHandlers[target].PushBack(handler)
+	handlers, ok := channel_handlers[target]
+	if !ok {
+		handlers = list.New()
+		channel_handlers[target] = handlers
+	}
+	handlers.PushBack(handler)
 
 	if c.parent != nil {
 		c.parent.RegisterEventHandler(handler)
@@ -62,8 +69,9 @@ func (c *Component) RegisterEventHandler(handler *EventHandler) {
 
 // Remove an EventHandler from the system
 func (c *Component) UnregisterEventHandler(handler *EventHandler) {
+	channel := handler.Channel()
 	target := handler.Target()
-	handlers, ok := c.eventHandlers[target]
+	handlers, ok := c.eventHandlers[channel][target]
 	if !ok {
 		return
 	}
@@ -86,9 +94,11 @@ func (c *Component) RegisterComponent(component *Component) {
 	component.root = c.root
 	component.parent = c
 
-	for _, handlers := range component.eventHandlers {
-		for h := handlers.Front(); h != nil; h = h.Next() {
-			c.RegisterEventHandler(h.Value.(*EventHandler))
+	for _, channel_handlers := range component.eventHandlers {
+		for _, handlers := range channel_handlers {
+			for h := handlers.Front(); h != nil; h = h.Next() {
+				c.RegisterEventHandler(h.Value.(*EventHandler))
+			}
 		}
 	}
 }
@@ -106,9 +116,11 @@ func (c *Component) UnregisterComponent(component *Component) {
 
 	if found {
 		c.children = append(c.children[:i], c.children[i+1:]...)
-		for _, handlers := range component.eventHandlers {
-			for h := handlers.Front(); h != nil; h = h.Next() {
-				c.UnregisterEventHandler(h.Value.(*EventHandler))
+		for _, channel_handlers := range component.eventHandlers {
+			for _, handlers := range channel_handlers {
+				for h := handlers.Front(); h != nil; h = h.Next() {
+					c.UnregisterEventHandler(h.Value.(*EventHandler))
+				}
 			}
 		}
 	}
@@ -137,22 +149,59 @@ func (c *Component) processEvents() {
 }
 
 // Process a single event
-func (c * Component) processEvent(event Event) {
+func (c *Component) processEvent(event Event) {
+	channel := event.Channel()
 	target := event.Target()
-	handlers := c.eventHandlers[target]
-	if handlers != nil {
-		for h := handlers.Front(); h != nil; h = h.Next() {
-			err := h.Value.(*EventHandler).Call(event)
+	handlers := c.getEventHandlers(channel, target)
+	for _, h := range handlers {
+		err := h.Call(event)
 
-			// Send notifications of Event status
-			if event.NotifyFailure() && err != nil {
-				c.Fire(&BaseEvent{target: target + "_failure"})
-			} else if event.NotifySuccess() && err == nil {
-				c.Fire(&BaseEvent{target: target + "_success"})
+		// Send notifications of Event status
+		if event.NotifyFailure() && err != nil {
+			c.Fire(NewEvent(channel, target+"_failure"))
+		} else if event.NotifySuccess() && err == nil {
+			c.Fire(NewEvent(channel, target+"_success"))
+		}
+		if event.NotifyComplete() {
+			c.Fire(NewEvent(channel, target+"_complete"))
+		}
+	}
+}
+
+// Determine event handlers for an event
+func (c *Component) getEventHandlers(channel, target string) []*EventHandler {
+	handlers := list.New()
+	if channel == "*" {
+		for _, channel_handlers := range c.eventHandlers {
+			c.addEventHandlersFromChannel(handlers, channel_handlers, target)
+		}
+	} else {
+		c.addEventHandlersFromChannel(handlers, c.eventHandlers[channel], target)
+		c.addEventHandlersFromChannel(handlers, c.eventHandlers["*"], target)
+	}
+
+	ret := make([]*EventHandler, 0, handlers.Len())
+	for h := handlers.Front(); h != nil; h = h.Next() {
+		ret = append(ret, h.Value.(*EventHandler))
+	}
+	return ret
+}
+
+func (c *Component) addEventHandlersFromChannel(handlers *list.List, channel_handlers map[string]*list.List, target string) {
+	if target == "*" {
+		for _, target_handlers := range channel_handlers {
+			if target_handlers != nil {
+				handlers.PushBackList(target_handlers)
 			}
-			if event.NotifyComplete() {
-				c.Fire(&BaseEvent{target: target + "_complete"})
-			}
+		}
+	} else {
+		target_handlers := channel_handlers[target]
+		if target_handlers != nil {
+			handlers.PushBackList(target_handlers)
+		}
+		generic_handlers := channel_handlers["*"]
+		if generic_handlers != nil {
+			handlers.PushBackList(generic_handlers)
 		}
 	}
 }
@@ -170,4 +219,3 @@ func (c *Component) Run(num_workers int) {
 
 	c.waitGroup.Wait() // Wait for all event goroutines to finish
 }
-

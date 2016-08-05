@@ -14,33 +14,57 @@
 
 package main
 
+func NewEvent(channel, target string) Event {
+	return &BaseEvent{channel: channel, target: target}
+}
+
 type Event interface {
+	Channel() string
 	Target() string
+	SetNotifyFailure(bool)
 	NotifyFailure() bool
+	SetNotifySuccess(bool)
 	NotifySuccess() bool
+	SetNotifyComplete(bool)
 	NotifyComplete() bool
 }
 
 type BaseEvent struct {
-	target string
-	notify_failure bool
-	notify_success bool
+	channel         string
+	target          string
+	notify_failure  bool
+	notify_success  bool
 	notify_complete bool
+}
+
+func (e *BaseEvent) Channel() string {
+	return e.channel
 }
 
 func (e *BaseEvent) Target() string {
 	return e.target
 }
 
+func (e *BaseEvent) SetNotifyFailure(v bool) {
+	e.notify_failure = v
+}
+
 func (e *BaseEvent) NotifyFailure() bool {
 	return e.notify_failure
+}
+
+func (e *BaseEvent) SetNotifySuccess(v bool) {
+	e.notify_success = v
 }
 
 func (e *BaseEvent) NotifySuccess() bool {
 	return e.notify_success
 }
 
+func (e *BaseEvent) SetNotifyComplete(v bool) {
+	e.notify_complete = v
+}
+
 func (e *BaseEvent) NotifyComplete() bool {
 	return e.notify_complete
 }
-

@@ -32,9 +32,9 @@ func FailingEventHandler(e Event) {
 func Test_SimpleEvent(t *testing.T) {
 	calls = make([]string, 0)
 	c := NewComponent()
-	c.RegisterEventHandler(NewEventHandler("foo", BasicEventHandler))
-	c.Fire(&BaseEvent{target: "foo"})
-	c.Fire(&BaseEvent{target: "exit"})
+	c.RegisterEventHandler(NewEventHandler("*", "foo", BasicEventHandler))
+	c.Fire(NewEvent("*", "foo"))
+	c.Fire(NewEvent("*", "exit"))
 	c.Run(1)
 	if len(calls) != 1 {
 		t.Errorf("Expected one call to the EventHandler. Got %d.", len(calls))
@@ -44,11 +44,11 @@ func Test_SimpleEvent(t *testing.T) {
 func Test_EventsFIFO(t *testing.T) {
 	calls = make([]string, 0)
 	c := NewComponent()
-	c.RegisterEventHandler(NewEventHandler("foo", BasicEventHandler))
-	c.RegisterEventHandler(NewEventHandler("bar", BasicEventHandler))
-	c.Fire(&BaseEvent{target: "foo"})
-	c.Fire(&BaseEvent{target: "bar"})
-	c.Fire(&BaseEvent{target: "exit"})
+	c.RegisterEventHandler(NewEventHandler("*", "foo", BasicEventHandler))
+	c.RegisterEventHandler(NewEventHandler("*", "bar", BasicEventHandler))
+	c.Fire(NewEvent("*", "foo"))
+	c.Fire(NewEvent("*", "bar"))
+	c.Fire(NewEvent("*", "exit"))
 	c.Run(1)
 	if len(calls) != 2 {
 		t.Errorf("Expected two calls to the EventHandler. Got %d.", len(calls))
@@ -57,14 +57,88 @@ func Test_EventsFIFO(t *testing.T) {
 	}
 }
 
+func Test_EventOnSpecificChannel(t *testing.T) {
+	calls = make([]string, 0)
+	c := NewComponent()
+	c.RegisterEventHandler(NewEventHandler("foo", "event", BasicEventHandler))
+	c.RegisterEventHandler(NewEventHandler("bar", "event", BasicEventHandler))
+	c.Fire(NewEvent("foo", "event"))
+	c.Fire(NewEvent("*", "exit"))
+	c.Run(1)
+	if len(calls) != 1 {
+		t.Errorf("Expected one call to the EventHandler. Got %d.", len(calls))
+	}
+}
+
+func Test_EventOnGlobalChannel(t *testing.T) {
+	calls = make([]string, 0)
+	c := NewComponent()
+	c.RegisterEventHandler(NewEventHandler("foo", "event", BasicEventHandler))
+	c.RegisterEventHandler(NewEventHandler("bar", "event", BasicEventHandler))
+	c.Fire(NewEvent("*", "event"))
+	c.Fire(NewEvent("*", "exit"))
+	c.Run(1)
+	if len(calls) != 2 {
+		t.Errorf("Expected one call to the EventHandler. Got %d.", len(calls))
+	}
+}
+
+func Test_HandlerOnGlobalChannel(t *testing.T) {
+	calls = make([]string, 0)
+	c := NewComponent()
+	c.RegisterEventHandler(NewEventHandler("*", "event", BasicEventHandler))
+	c.Fire(NewEvent("foo", "event"))
+	c.Fire(NewEvent("*", "exit"))
+	c.Run(1)
+	if len(calls) != 1 {
+		t.Errorf("Expected one call to the EventHandler. Got %d.", len(calls))
+	}
+}
+
+func Test_EventOnSpecificTarget(t *testing.T) {
+	calls = make([]string, 0)
+	c := NewComponent()
+	c.RegisterEventHandler(NewEventHandler("*", "foo", BasicEventHandler))
+	c.RegisterEventHandler(NewEventHandler("*", "bar", BasicEventHandler))
+	c.Fire(NewEvent("*", "foo"))
+	c.Fire(NewEvent("*", "exit"))
+	c.Run(1)
+	if len(calls) != 1 {
+		t.Errorf("Expected one call to the EventHandler. Got %d.", len(calls))
+	}
+}
+
+func Test_EventOnGenericTarget(t *testing.T) {
+	calls = make([]string, 0)
+	c := NewComponent()
+	c.RegisterEventHandler(NewEventHandler("*", "foo", BasicEventHandler))
+	c.Fire(NewEvent("*", "*"))
+	c.Run(1)
+	if len(calls) != 1 {
+		t.Errorf("Expected one call to the EventHandler. Got %d.", len(calls))
+	}
+}
+
+func Test_HandlerOnGenericTarget(t *testing.T) {
+	calls = make([]string, 0)
+	c := NewComponent()
+	c.RegisterEventHandler(NewEventHandler("*", "*", BasicEventHandler))
+	c.Fire(NewEvent("*", "foo"))
+	c.Fire(NewEvent("*", "exit"))
+	c.Run(1)
+	if len(calls) != 2 {
+		t.Errorf("Expected two calls to the EventHandler. Got %d.", len(calls))
+	}
+}
+
 func Test_UnregisterEventHandler(t *testing.T) {
 	calls = make([]string, 0)
 	c := NewComponent()
-	eventHandler := NewEventHandler("foo", BasicEventHandler)
+	eventHandler := NewEventHandler("*", "foo", BasicEventHandler)
 	c.RegisterEventHandler(eventHandler)
 	c.UnregisterEventHandler(eventHandler)
-	c.Fire(&BaseEvent{target: "foo"})
-	c.Fire(&BaseEvent{target: "exit"})
+	c.Fire(NewEvent("*", "foo"))
+	c.Fire(NewEvent("*", "exit"))
 	c.Run(1)
 	if len(calls) != 0 {
 		t.Errorf("Expected no calls to the EventHandler. Got %d.", len(calls))
@@ -75,10 +149,10 @@ func Test_RegisterComponent(t *testing.T) {
 	calls = make([]string, 0)
 	main := NewComponent()
 	child := NewComponent()
-	child.RegisterEventHandler(NewEventHandler("foo", BasicEventHandler))
+	child.RegisterEventHandler(NewEventHandler("*", "foo", BasicEventHandler))
 	main.RegisterComponent(child)
-	main.Fire(&BaseEvent{target: "foo"})
-	main.Fire(&BaseEvent{target: "exit"})
+	main.Fire(NewEvent("*", "foo"))
+	main.Fire(NewEvent("*", "exit"))
 	main.Run(1)
 	if len(calls) != 1 {
 		t.Errorf("Expected one call to the event handler. Got %d.", len(calls))
@@ -89,11 +163,11 @@ func Test_UnregisterComponent(t *testing.T) {
 	calls = make([]string, 0)
 	main := NewComponent()
 	child := NewComponent()
-	child.RegisterEventHandler(NewEventHandler("foo", BasicEventHandler))
+	child.RegisterEventHandler(NewEventHandler("*", "foo", BasicEventHandler))
 	main.RegisterComponent(child)
 	main.UnregisterComponent(child)
-	main.Fire(&BaseEvent{target: "foo"})
-	main.Fire(&BaseEvent{target: "exit"})
+	main.Fire(NewEvent("*", "foo"))
+	main.Fire(NewEvent("*", "exit"))
 	main.Run(1)
 	if len(calls) != 0 {
 		t.Errorf("Expected no calls to the event handler. Got %d.", len(calls))
@@ -103,12 +177,14 @@ func Test_UnregisterComponent(t *testing.T) {
 func Test_CompleteNotification(t *testing.T) {
 	calls = make([]string, 0)
 	c := NewComponent()
-	eventHandler := NewEventHandler("foo", BasicEventHandler)
+	eventHandler := NewEventHandler("*", "foo", BasicEventHandler)
 	c.RegisterEventHandler(eventHandler)
-	completeHandler := NewEventHandler("foo_complete", BasicEventHandler)
+	completeHandler := NewEventHandler("*", "foo_complete", BasicEventHandler)
 	c.RegisterEventHandler(completeHandler)
-	c.Fire(&BaseEvent{target: "foo", notify_complete: true})
-	c.Fire(&BaseEvent{target: "exit"})
+	e := NewEvent("*", "foo")
+	e.SetNotifyComplete(true)
+	c.Fire(e)
+	c.Fire(NewEvent("*", "exit"))
 	c.Run(1)
 	if len(calls) != 2 {
 		t.Errorf("Expected two calls to the event handler. Got %d.", len(calls))
@@ -116,32 +192,35 @@ func Test_CompleteNotification(t *testing.T) {
 }
 
 func Test_SuccessNotification(t *testing.T) {
-        calls = make([]string, 0)
-        c := NewComponent()
-        eventHandler := NewEventHandler("foo", BasicEventHandler)
-        c.RegisterEventHandler(eventHandler)
-        completeHandler := NewEventHandler("foo_success", BasicEventHandler)
-        c.RegisterEventHandler(completeHandler)
-        c.Fire(&BaseEvent{target: "foo", notify_success: true})
-        c.Fire(&BaseEvent{target: "exit"})
-        c.Run(1)
-        if len(calls) != 2 {
-                t.Errorf("Expected two calls to the event handler. Got %d.", len(calls))
-        }
+	calls = make([]string, 0)
+	c := NewComponent()
+	eventHandler := NewEventHandler("*", "foo", BasicEventHandler)
+	c.RegisterEventHandler(eventHandler)
+	completeHandler := NewEventHandler("*", "foo_success", BasicEventHandler)
+	c.RegisterEventHandler(completeHandler)
+	e := NewEvent("*", "foo")
+	e.SetNotifySuccess(true)
+	c.Fire(e)
+	c.Fire(NewEvent("*", "exit"))
+	c.Run(1)
+	if len(calls) != 2 {
+		t.Errorf("Expected two calls to the event handler. Got %d.", len(calls))
+	}
 }
 
 func Test_FailureNotification(t *testing.T) {
-        calls = make([]string, 0)
-        c := NewComponent()
-        eventHandler := NewEventHandler("foo", FailingEventHandler)
-        c.RegisterEventHandler(eventHandler)
-        completeHandler := NewEventHandler("foo_failure", BasicEventHandler)
-        c.RegisterEventHandler(completeHandler)
-        c.Fire(&BaseEvent{target: "foo", notify_failure: true})
-        c.Fire(&BaseEvent{target: "exit"})
-        c.Run(1)
-        if len(calls) != 2 {
-                t.Errorf("Expected two calls to the event handler. Got %d.", len(calls))
-        }
+	calls = make([]string, 0)
+	c := NewComponent()
+	eventHandler := NewEventHandler("*", "foo", FailingEventHandler)
+	c.RegisterEventHandler(eventHandler)
+	completeHandler := NewEventHandler("*", "foo_failure", BasicEventHandler)
+	c.RegisterEventHandler(completeHandler)
+	e := NewEvent("*", "foo")
+	e.SetNotifyFailure(true)
+	c.Fire(e)
+	c.Fire(NewEvent("*", "exit"))
+	c.Run(1)
+	if len(calls) != 2 {
+		t.Errorf("Expected two calls to the event handler. Got %d.", len(calls))
+	}
 }
-
